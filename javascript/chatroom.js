@@ -23,13 +23,13 @@ $('#createRoomButton').click(function() {
     var loc = window.location.search = '?room=' + $('#roomName').val();
 });
 
-var createRoom = function() {
+var createRoom = function(waitForSec) {
     config.peer = new Peer(config.roomid, {key: config.API_KEY});
 
     config.peer.on('error', function(e) {
         console.log(e);
         if (e.toString().match(/ID.*is taken/)) {
-            joinRoom();
+            joinRoom(waitForSec);
         }
     });
 
@@ -42,19 +42,20 @@ var createRoom = function() {
 
         config.peer.on('connection', function(conn) {
             handleConnection(conn);
-            getName(conn);
+
+            conn.on('open', function() {
+                getName(conn);
+            });
         });
     });
 };
 
 var getName = function(conn) {
-    setTimeout(function() {
         conn.send({
             type: MSG_TYPE.NAME_REQ,
             peername: $myname.val(),
             members_count: Object.keys(config.connections).length+1
         });
-    }, 1000);
 };
 
 var broadcastNewMember = function(peerid) {
@@ -68,19 +69,33 @@ var broadcastNewMember = function(peerid) {
     }
 };
 
-var joinRoom = function() {
+var joinRoom = function(waitForSec) {
+    if (!waitForSec) {
+        waitForSec = 2;
+    }
+
     config.peer = new Peer({key: config.API_KEY});
     conn = config.peer.connect(config.roomid);
     handleConnection(conn);
 
-    config.peer.on('open', function(id) {
-        log('info', 'Entered room: ' + config.roomid);
+    console.log(conn);
+
+    conn.on('open', function(id) {
         config.connections[id] = conn;
     });
+
+    setTimeout(function() {
+        if (Object.keys(config.connections).length == 0) {
+            log('info', 'Cannot connect to room in ' + waitForSec + ' seconds');
+            log('info', 'Retrying..');
+            createRoom(waitForSec*2);
+        }
+    }, waitForSec*1000);
 };
 
 var handleConnection = function(conn) {
     conn.on('open', function() {
+        console.log('connected to peer', conn.peer);
         $sendButton.prop('disabled', false);
     });
 
@@ -93,6 +108,7 @@ var handleConnection = function(conn) {
         switch (data.type) {
             case MSG_TYPE.NAME_REQ:
                 conn.peername = data.peername;
+                log('info', 'Entered room: ' + config.roomid);
                 log('info', data.members_count+1 + ' people in this room');
                 conn.send({
                     type: MSG_TYPE.NAME_REP,
