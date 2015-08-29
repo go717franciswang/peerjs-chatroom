@@ -27,6 +27,7 @@ var createRoom = function() {
     config.peer = new Peer(config.roomid, {key: config.API_KEY});
 
     config.peer.on('error', function(e) {
+        console.log(e);
         if (e.toString().match(/ID.*is taken/)) {
             joinRoom();
         }
@@ -74,6 +75,7 @@ var joinRoom = function() {
 
     config.peer.on('open', function(id) {
         log('info', 'Entered room: ' + config.roomid);
+        config.connections[id] = conn;
     });
 };
 
@@ -82,7 +84,12 @@ var handleConnection = function(conn) {
         $sendButton.prop('disabled', false);
     });
 
+    conn.on('error', function(e) {
+        console.log(e);
+    });
+
     conn.on('data', function(data) {
+        console.log(data);
         switch (data.type) {
             case MSG_TYPE.NAME_REQ:
                 conn.peername = data.peername;
@@ -159,11 +166,6 @@ var broadcastMessage = function(data) {
 
 var broadcastDeparture = function(peername) {
     for (var id in config.connections) {
-        // don't send message back to original author
-        if (id == data.peerid) {
-            continue;
-        }
-
         var conn = config.connections[id];
         conn.send({
             type: MSG_TYPE.DEPARTURE,
@@ -173,6 +175,10 @@ var broadcastDeparture = function(peername) {
 };
 
 var sendMessage = function(conn) {
+    if ($sendButton.prop('disabled')) {
+        return;
+    }
+
     var data = $message.val();
     if (data.length == 0) return;
     log($myname.val(), data);
