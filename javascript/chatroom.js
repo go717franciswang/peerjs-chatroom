@@ -50,7 +50,8 @@ var getName = function(conn) {
     setTimeout(function() {
         conn.send({
             type: MSG_TYPE.NAME_REQ,
-            peername: $myname.val()
+            peername: $myname.val(),
+            members_count: Object.keys(config.connections).length+1
         });
     }, 1000);
 };
@@ -85,29 +86,30 @@ var handleConnection = function(conn) {
         switch (data.type) {
             case MSG_TYPE.NAME_REQ:
                 conn.peername = data.peername;
-            conn.send({
-                type: MSG_TYPE.NAME_REP,
-                peername: $myname.val()
-            });
-            break;
+                log('info', data.members_count+1 + ' people in this room');
+                conn.send({
+                    type: MSG_TYPE.NAME_REP,
+                    peername: $myname.val()
+                });
+                break;
             case MSG_TYPE.NAME_REP:
                 log('info', data.peername + ' entered the room');
-            conn.peername = data.peername;
-            broadcastNewMember(data.peername);
-            config.connections[conn.peer] = conn;
-            break;
+                conn.peername = data.peername;
+                broadcastNewMember(data.peername);
+                config.connections[conn.peer] = conn;
+                break;
             case MSG_TYPE.CHAT:
                 log(data.peername, data.data);
-            if (config.peer.id == config.roomid) {
-                broadcastMessage(data);
-            }
-            break;
+                if (config.peer.id == config.roomid) {
+                    broadcastMessage(data);
+                }
+                break;
             case MSG_TYPE.NEW_MEMBER:
-                log('log', data.peername + ' entered the room');
-            break;
+                    log('log', data.peername + ' entered the room');
+                break;
             case MSG_TYPE.DEPARTURE:
-                log('log', data.peername + ' left the room');
-            break;
+                    log('log', data.peername + ' left the room');
+                break;
         }
     });
 
